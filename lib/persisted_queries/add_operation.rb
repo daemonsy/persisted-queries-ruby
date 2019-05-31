@@ -1,25 +1,20 @@
-require 'digest'
-
 module PersistedQueries
   class AddOperation
-    def initialize(client:, query:, hash:, store:)
-      @client = client
-      @query = query
-      @hash = hash
-      @store = store
+    def initialize(path:, document:, key:)
+      @path = path
+      @document = document
+      @key = key
     end
 
-    def perform
-      document = GraphQL.parse(query)
-      errors = store.schema.validate(document) # Use validation to assert that the document has only 1 valid operation
-      # digest = Digest::MD5.hexdigest(document.to_query_string)
+    def perform!
       name = document.definitions[0].name
+      file_path = path + "#{name.underscore}_#{key}.graphql"
+      File.open(file_path, "w") { |file| file.write(document.to_query_string) }
 
-      filename = store.client_path(client.underscore) + "#{name.underscore}_#{hash}.graphql"
-      File.open(filename, "w") { |file| file.write(document.to_query_string) }
+      Operation.new(name: name, document: document, file_path: file_path, key: key)
     end
 
     private
-    attr_reader :client, :query, :hash, :store
+    attr_reader :path, :document, :key, :registry
   end
 end
