@@ -1,11 +1,25 @@
 module PersistedQueries
   class Operation
-    attr_reader :name, :file_path, :key, :document
-    def initialize(name:, document:, key:, file_path:)
-      @name = name
+    attr_reader :name, :key, :document
+    def initialize(document:, key:, client_path:)
+      @client_path = client_path
       @key = key
       @document = document
-      @file_path = file_path
     end
+
+    def name
+      document.definitions[0].name
+    end
+
+    def query
+      document.to_query_string
+    end
+
+    def file_path
+      @file_path ||= client_path + "#{StringUtilities.underscore(name)}_#{key}.graphql"
+    end
+
+    private
+    attr_reader :client_path
   end
 end

@@ -4,8 +4,6 @@ require 'persisted_queries/static_validation/validator'
 module PersistedQueries
   class Registry
     class << self
-      attr_reader :path
-
       def schema(value = nil)
         self.schema = value if value
         @schema
@@ -28,22 +26,21 @@ module PersistedQueries
         @path = Pathname.new(value)
       end
 
+      def clear!(client:)
+        client_path(client).children.each(&:rmtree)
+        true
+      end
+
       def add(client:, query:, key:)
         document = GraphQL.parse(query)
         validator = StaticValidation::Validator.new(schema: schema)
+        path = client_path(client)
 
-        errors = validator.validate(document).fetch(:errors)
-        return { success: false, errors: errors } if errors.size > 0
-
-        path = client_path(client.underscore)
-        path.mkpath
-        operation = AddOperation.new(path: path, document: document, key: key).perform!
-
-        { success: true, operation: operation }
+        AddOperation.new(path: path, document: document, key: key, validator: validator).perform!
       end
 
-      def client_path(client)
-        path + client
+      def client_path(name)
+        path + StringUtilities.underscore(name)
       end
     end
   end

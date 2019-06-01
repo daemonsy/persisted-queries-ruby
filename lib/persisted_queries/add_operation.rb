@@ -1,20 +1,36 @@
+require 'persisted_queries/add_operation_result'
+
 module PersistedQueries
   class AddOperation
-    def initialize(path:, document:, key:)
+    def initialize(path:, document:, key:, validator:)
       @path = path
       @document = document
       @key = key
+      @validator = validator
     end
 
     def perform!
-      name = document.definitions[0].name
-      file_path = path + "#{name.underscore}_#{key}.graphql"
-      File.open(file_path, "w") { |file| file.write(document.to_query_string) }
+      return result unless errors.empty?
+      path.mkpath
 
-      Operation.new(name: name, document: document, file_path: file_path, key: key)
+      File.open(operation.file_path, "w") { |file| file.write(operation.query) }
+
+      result
+    end
+
+    def errors
+      @errors ||= validator.validate(document).fetch(:errors)
+    end
+
+    def operation
+      @operation ||= Operation.new(document: document, client_path: path, key: key)
     end
 
     private
-    attr_reader :path, :document, :key, :registry
+    attr_reader :path, :document, :key, :registry, :validator
+
+    def result
+      @result ||= AddOperationResult.new(errors: errors, operation: operation)
+    end
   end
 end

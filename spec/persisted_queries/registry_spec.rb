@@ -41,7 +41,7 @@ RSpec.describe PersistedQueries::Registry do
     before { GithubRegistry.path(temp_folder) }
 
     it 'adds the operations as graphql files to the client folder' do
-      operation = GithubRegistry.add(client: 'github-dashboard', query: query, key: per_test_uuid).fetch(:operation)
+      operation = GithubRegistry.add(client: 'github-dashboard', query: query, key: per_test_uuid).operation
       expected_path = Pathname.new(temp_folder) + 'github_dashboard' + "get_remembered_rubyist_#{per_test_uuid}.graphql"
 
       expect(operation.file_path).to eq(expected_path)
@@ -51,9 +51,13 @@ RSpec.describe PersistedQueries::Registry do
     it 'validates the query against the schema' do
       result = GithubRegistry.add(client: 'github', query: syntax_correct_bad_field_query, key: SecureRandom.uuid)
 
-      expect(result.fetch(:success)).to eq(false)
-      expect(result.fetch(:errors).length).to eq(1)
-      expect(result.fetch(:errors).first).to be_a(GraphQL::StaticValidation::FieldsAreDefinedOnTypeError)
+      expect(result.success?).to eq(false)
+      expect(result.errors.size).to eq(1)
+      expect(result.errors.first).to be_a(GraphQL::StaticValidation::FieldsAreDefinedOnTypeError)
+    end
+
+    context 'client validation' do
+      it 'only allows kebab and underscore client names'
     end
 
     context 'query validation' do
@@ -78,12 +82,12 @@ RSpec.describe PersistedQueries::Registry do
 
       it 'returns an error if there is more than one operation per document' do
         result = GithubRegistry
-        .add(client: 'github', query: query_with_multiple_operations, key: SecureRandom.uuid)
+          .add(client: 'github', query: query_with_multiple_operations, key: SecureRandom.uuid)
 
-        expect(result.fetch(:success)).to eq(false)
-        expect(result.fetch(:errors).size).to eq(1)
+        expect(result.success?).to eq(false)
+        expect(result.errors.size).to eq(1)
 
-        operation_error = result.dig(:errors, 0)
+        operation_error = result.errors.first
         expect(operation_error).to be_a(PersistedQueries::StaticValidation::OneOperationPerDocumentError)
         expect(operation_error.message).to match('getRepoInfo')
         expect(operation_error.message).to match('getUser')
